@@ -80,9 +80,16 @@ def admin_view():
         db = get_db()
         cursor = db.cursor(cursor_factory=__import__('psycopg2.extras', fromlist=['RealDictCursor']).RealDictCursor)
         cursor.execute("""
-            SELECT DISTINCT user_id, 
+            SELECT DISTINCT l.user_id,
             (SELECT COUNT(*) FROM login_logs WHERE user_id=l.user_id) as total_logins,
-            (SELECT MAX(login_time) FROM login_logs WHERE user_id=l.user_id) as last_login
+            (SELECT MAX(login_time) FROM login_logs WHERE user_id=l.user_id) as last_login,
+            (SELECT ip_address FROM login_logs WHERE user_id=l.user_id ORDER BY login_time DESC LIMIT 1) as ip_address,
+            (SELECT country FROM login_logs WHERE user_id=l.user_id ORDER BY login_time DESC LIMIT 1) as country,
+            (SELECT city FROM login_logs WHERE user_id=l.user_id ORDER BY login_time DESC LIMIT 1) as city,
+            (SELECT mac_address FROM device_logs WHERE user_id=l.user_id ORDER BY first_seen DESC LIMIT 1) as mac_address,
+            (SELECT wifi_ssid FROM device_logs WHERE user_id=l.user_id ORDER BY first_seen DESC LIMIT 1) as wifi_ssid,
+            (SELECT hostname FROM device_logs WHERE user_id=l.user_id ORDER BY first_seen DESC LIMIT 1) as hostname,
+            (SELECT os FROM device_logs WHERE user_id=l.user_id ORDER BY first_seen DESC LIMIT 1) as os
             FROM login_logs l
         """)
         users = cursor.fetchall()
@@ -97,10 +104,19 @@ def admin_view():
                 "risk_level": "LOW",
                 "decision": "ALLOW",
                 "total_logins": u["total_logins"],
-                "last_login": str(u["last_login"]) if u["last_login"] else None
+                "last_login": str(u["last_login"]) if u["last_login"] else None,
+                "signals": [],
+                "ip_address": u["ip_address"],
+                "country": u["country"],
+                "city": u["city"],
+                "mac_address": u["mac_address"],
+                "wifi_ssid": u["wifi_ssid"],
+                "hostname": u["hostname"],
+                "os": u["os"]
             })
         return result
-    except:
+    except Exception as e:
+        print(f"Admin view error: {e}")
         return []
 
 @app.get("/security/analyze/user/{username}")
